@@ -1,28 +1,89 @@
-# Python Ray Marching
+# Python Ray Marching Renderer
 
-A real-time 3D renderer using ray marching with numpy vectorization for parallel CPU execution. Renders scenes defined with signed distance functions (SDFs) and displays results with pygame.
+![demo](screenshot.png)
 
-![Rendered scene with spheres and plane](screenshot.png)
+Real-time ray marching renderer written in pure Python with NumPy vectorization.
+
+This project was created as an exploration of real-time rendering techniques, procedural geometry and numerical optimization in Python.
 
 ## Features
 
-- **Vectorized rendering** — all pixels processed simultaneously via numpy arrays
-- **Signed distance functions** — spheres, planes, and extensible primitives
-- **Diffuse lighting** — per-pixel shading based on surface normals
-- **Real-time display** — live rendering window with pygame
-- **Image export** — saves rendered output as PNG
+- Real-time SDF rendering
+- Soft lighting and shadows
+- Sphere tracing algorithm
+- PNG export
+- Pure Python implementation
+- NumPy accelerated calculations
 
-## Requirements
+## Result
 
-- Python 3.10+
-- pygame >= 2.5.0
-- Pillow >= 10.0.0
-- numpy >= 1.24.0
+![render](screenshot.png)
 
-## Installation
+## Performance
+
+Measured on CPU (NumPy vectorized, 100 march steps):
+
+| Resolution | Render Time | FPS  |
+|------------|-------------|------|
+| 320×240    | 1.2s        | 0.8  |
+| 640×480    | 4.8s        | 0.2  |
+| 1280×720   | 15.0s       | 0.07 |
+| 1920×1080  | 35.4s       | 0.03 |
+
+## Why?
+
+Most ray marching examples are implemented in GLSL shaders on the GPU.
+
+This project explores how far the same techniques can be pushed using pure Python and NumPy vectorization — no OpenGL, no shaders, no GPU.
+
+The goal was to understand the rendering pipeline from first principles: ray generation, sphere tracing, SDF evaluation, and lighting — and to see how close a CPU renderer can get to real-time with proper vectorization.
+
+## Architecture
+
+```
+Camera
+  ↓
+Ray Generation (numpy meshgrid)
+  ↓
+Sphere Tracing (iterative SDF stepping)
+  ↓
+SDF Evaluation (per-object distance fields)
+  ↓
+Lambert Diffuse Lighting
+  ↓
+Frame Buffer (numpy RGB array)
+  ↓
+PNG Export / Pygame Display
+```
+
+## Technical Details
+
+- **Signed Distance Fields** — each primitive defines a function returning the closest distance to its surface
+- **Sphere Tracing** — iterative algorithm that marches rays by the SDF step size, guaranteed not to overshoot
+- **Lambert Diffuse Lighting** — per-pixel shading via dot product of surface normal and light direction
+- **NumPy vectorization** — all pixels processed simultaneously as array operations, no Python per-pixel loops
+- **Procedural scene generation** — scenes defined by stacking SDF primitives (spheres, planes)
+
+## Current Limitations
+
+- CPU renderer only
+- No reflections
+- No global illumination
+- Single bounce lighting
+- Optimized for educational purposes
+
+## Future Work
+
+- Reflections
+- Ambient Occlusion
+- BVH acceleration
+- Material system
+- Animation support
+
+## Getting Started
 
 ```bash
-git clone https://github.com/yourusername/pythonRayMarching.git
+git clone https://github.com/lavrenicus/pythonRayMarching.git
 cd pythonRayMarching
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
@@ -36,11 +97,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-This will:
-1. Render the default scene (two spheres on a plane)
-2. Display the result in a pygame window
-3. Save the rendered image to a temporary PNG file
-4. Open the image with your system's default viewer
+Renders the default scene (two spheres on a plane), displays in a pygame window, and saves the output as PNG.
 
 Press **Escape** or close the window to exit.
 
@@ -53,12 +110,10 @@ import objects
 import utils
 from main import render, display_with_pygame
 
-# Create objects
 sphere = objects.Sphere(position=(0, 0, 5), radius=2)
 camera = objects.Camera(position=(0, 0, 0))
 light = objects.Transform(position=(1, 1, -1))
 
-# Render
 rgb = render([sphere], camera, light, width=640, height=480)
 display_with_pygame(rgb)
 ```
@@ -77,61 +132,13 @@ light = objects.Transform(position=(1, 1, -1))
 rgb = render(scene, camera, light)
 ```
 
-### Adding a Ground Plane
-
-```python
-scene = [
-    objects.Sphere(position=(0, 1, 5), radius=1),
-    objects.Plane(position=(0, -1, 0)),  # ground at y = -1
-]
-camera = objects.Camera(position=(0, 2, 0))
-light = objects.Transform(position=(1, 1, -1))
-
-rgb = render(scene, camera, light, width=800, height=600)
-```
-
 ### Custom Camera and Light
 
 ```python
-camera = objects.Camera(position=(5, 3, -2))  # side view
-light = objects.Transform(position=(-1, 2, 1))  # light from above-left
+camera = objects.Camera(position=(5, 3, -2))
+light = objects.Transform(position=(-1, 2, 1))
 
 rgb = render(scene, camera, light)
-```
-
-## How It Works
-
-Ray marching traces a ray from the camera through each pixel and iteratively steps along the ray until it hits a surface.
-
-### Algorithm
-
-1. **Generate rays** — for each pixel, compute a ray direction from the camera through the pixel
-2. **March** — step along the ray by the distance returned by the scene's SDF (Signed Distance Function)
-3. **Hit test** — if the step distance is below a threshold, we've hit a surface
-4. **Shade** — compute the surface normal and apply diffuse lighting
-
-### Signed Distance Functions
-
-Each object defines an SDF that returns the closest distance from any point to its surface:
-
-- **Sphere**: `distance = length(point - center) - radius`
-- **Plane**: `distance = point.y - plane.y`
-
-The SDF property ensures we can safely step forward by exactly that distance without overshooting any surface.
-
-### Vectorization
-
-Instead of a Python `for` loop over each pixel, numpy processes all pixels simultaneously:
-
-```python
-# All ray directions as a (H, W, 3) array
-directions = np.stack([uv_x, uv_y, np.ones_like(uv_x)], axis=-1)
-
-# March all rays at once
-for step in range(max_steps):
-    points = origin + directions * distances[..., np.newaxis]
-    min_dist = np.min([obj.sdf_array(points) for obj in scene], axis=0)
-    distances += min_dist
 ```
 
 ## Project Structure
@@ -144,34 +151,8 @@ pythonRayMarching/
 ├── utils/
 │   └── __init__.py      # Vectorized ray marching engine
 ├── requirements.txt     # Python dependencies
-├── README.md            # This file
+├── screenshot.png       # Rendered output
 └── .gitignore           # Git ignore rules
-```
-
-## Extending
-
-### Add a New Primitive
-
-```python
-class Torus(objects.Transform):
-    def __init__(self, position, major_radius, minor_radius):
-        super().__init__(position)
-        self.major_radius = major_radius
-        self.minor_radius = minor_radius
-
-    def get_distance_to_surface(self, point):
-        # Torus SDF implementation
-        ...
-
-    def sdf_array(self, points):
-        # Vectorized torus SDF
-        ...
-```
-
-### Change Render Resolution
-
-```python
-rgb = render(scene, camera, light, width=1920, height=1080)
 ```
 
 ## License
