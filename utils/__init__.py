@@ -125,6 +125,7 @@ def compute_normals_from_scene(points, scene, epsilon=0.0005):
     e_z = np.array([0.0, 0.0, epsilon])
 
     def sdf_at(offsets):
+        """Compute minimum SDF distance across all scene objects for given points."""
         d = np.stack(
             [obj.sdf_array(offsets) for obj in scene], axis=-1
         )
