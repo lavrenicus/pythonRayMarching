@@ -337,3 +337,295 @@ class Camera(Transform):
     >>> c.position
     Vector:(0, 1, -10)
     """
+
+
+class Torus(Transform):
+    """Torus (donut) with major radius R and minor radius r.
+
+    Centered at position, lying in the XZ plane.
+
+    >>> t = Torus((0, 0, 0), major_radius=5, minor_radius=2)
+    >>> t.major_radius
+    5
+    >>> t.minor_radius
+    2
+    """
+
+    def __init__(self, position, major_radius, minor_radius):
+        """Create torus with center, major and minor radii.
+
+        >>> t = Torus((1, 2, 3), 5, 2)
+        >>> t.position
+        Vector:(1, 2, 3)
+        """
+        super().__init__(position)
+        self.major_radius = major_radius
+        self.minor_radius = minor_radius
+
+    def get_distance_to_surface(self, point):
+        """Return signed distance from point to torus surface.
+
+        >>> Torus((0, 0, 0), 5, 2).get_distance_to_surface(Vector((5, 0, 0)))
+        -2.0
+        >>> Torus((0, 0, 0), 5, 2).get_distance_to_surface(Vector((0, 0, 0)))
+        3.0
+        """
+        p = point - self.position
+        q = Vector((sqrt(p.x ** 2 + p.z ** 2) - self.major_radius, p.y, 0))
+        return q.length - self.minor_radius
+
+    def get_normal(self, point):
+        """Return unit normal at point on torus surface.
+
+        >>> n = Torus((0, 0, 0), 5, 2).get_normal(Vector((7, 0, 0)))
+        >>> abs(abs(n.x) - 1.0) < 0.01
+        True
+        """
+        p = point - self.position
+        q_len = sqrt(p.x ** 2 + p.z ** 2)
+        if q_len < 1e-8:
+            return Vector((0, 1, 0))
+        qx = (q_len - self.major_radius) * p.x / q_len
+        qy = p.y
+        return Vector((qx, qy, 0)).normalized()
+
+    def sdf_array(self, points):
+        """Vectorized SDF for numpy array.
+
+        >>> import numpy as np
+        >>> t = Torus((0, 0, 0), 5, 2)
+        >>> pts = np.array([[[5, 0, 0], [0, 0, 0]]])
+        >>> t.sdf_array(pts)
+        array([[-2.,  3.]])
+        """
+        center = self.position.to_numpy()
+        p = points - center
+        xz_len = np.sqrt(p[..., 0] ** 2 + p[..., 2] ** 2)
+        qx = xz_len - self.major_radius
+        qy = p[..., 1]
+        return np.sqrt(qx ** 2 + qy ** 2) - self.minor_radius
+
+
+class Cylinder(Transform):
+    """Infinite cylinder along Y axis with given radius.
+
+    Centered at position.
+
+    >>> c = Cylinder((0, 0, 0), radius=3)
+    >>> c.radius
+    3
+    """
+
+    def __init__(self, position, radius):
+        """Create cylinder with center and radius.
+
+        >>> c = Cylinder((1, 2, 3), 5)
+        >>> c.position
+        Vector:(1, 2, 3)
+        """
+        super().__init__(position)
+        self.radius = radius
+
+    def get_distance_to_surface(self, point):
+        """Return signed distance from point to cylinder surface.
+
+        >>> Cylinder((0, 0, 0), 3).get_distance_to_surface(Vector((3, 5, 0)))
+        0.0
+        >>> Cylinder((0, 0, 0), 3).get_distance_to_surface(Vector((0, 0, 0)))
+        -3.0
+        >>> Cylinder((0, 0, 0), 3).get_distance_to_surface(Vector((5, 10, 0)))
+        2.0
+        """
+        p = point - self.position
+        d = sqrt(p.x ** 2 + p.z ** 2) - self.radius
+        return d
+
+    def get_normal(self, point):
+        """Return unit normal at point.
+
+        >>> n = Cylinder((0, 0, 0), 3).get_normal(Vector((3, 5, 0)))
+        >>> abs(abs(n.x) - 1.0) < 0.01
+        True
+        """
+        p = point - self.position
+        d = sqrt(p.x ** 2 + p.z ** 2)
+        if d < 1e-8:
+            return Vector((1, 0, 0))
+        return Vector((p.x / d, 0, p.z / d))
+
+    def sdf_array(self, points):
+        """Vectorized SDF for numpy array.
+
+        >>> import numpy as np
+        >>> c = Cylinder((0, 0, 0), 3)
+        >>> pts = np.array([[[3, 5, 0], [0, 0, 0], [5, 10, 0]]])
+        >>> c.sdf_array(pts)
+        array([[ 0., -3.,  2.]])
+        """
+        center = self.position.to_numpy()
+        p = points - center
+        return np.sqrt(p[..., 0] ** 2 + p[..., 2] ** 2) - self.radius
+
+
+class Box(Transform):
+    """Axis-aligned box with half-extents (hx, hy, hz).
+
+    Centered at position.
+
+    >>> b = Box((0, 0, 0), half_extents=(2, 3, 4))
+    >>> b.half_extents
+    (2, 3, 4)
+    """
+
+    def __init__(self, position, half_extents):
+        """Create box with center and half-extents.
+
+        >>> b = Box((1, 2, 3), (4, 5, 6))
+        >>> b.position
+        Vector:(1, 2, 3)
+        """
+        super().__init__(position)
+        self.half_extents = tuple(half_extents)
+
+    def get_distance_to_surface(self, point):
+        """Return signed distance from point to box surface.
+
+        >>> Box((0, 0, 0), (1, 1, 1)).get_distance_to_surface(Vector((0, 0, 0)))
+        -1.0
+        >>> Box((0, 0, 0), (1, 1, 1)).get_distance_to_surface(Vector((1, 1, 1)))
+        0.0
+        >>> Box((0, 0, 0), (1, 1, 1)).get_distance_to_surface(Vector((2, 0, 0)))
+        1.0
+        """
+        p = point - self.position
+        hx, hy, hz = self.half_extents
+        qx = max(abs(p.x) - hx, 0)
+        qy = max(abs(p.y) - hy, 0)
+        qz = max(abs(p.z) - hz, 0)
+        outside = sqrt(qx * qx + qy * qy + qz * qz)
+        inside = min(max(abs(p.x) - hx, max(abs(p.y) - hy, abs(p.z) - hz)), 0)
+        return outside + inside
+
+    def get_normal(self, point):
+        """Return unit normal at point.
+
+        >>> n = Box((0, 0, 0), (1, 1, 1)).get_normal(Vector((2, 0, 0)))
+        >>> n
+        Vector:(1.0, 0.0, 0.0)
+        """
+        p = point - self.position
+        hx, hy, hz = self.half_extents
+        nx = 1.0 if p.x > hx else (-1.0 if p.x < -hx else 0.0)
+        ny = 1.0 if p.y > hy else (-1.0 if p.y < -hy else 0.0)
+        nz = 1.0 if p.z > hz else (-1.0 if p.z < -hz else 0.0)
+        n = Vector((nx, ny, nz))
+        if n.length < 1e-8:
+            return Vector((0, 1, 0))
+        return n.normalized()
+
+    def sdf_array(self, points):
+        """Vectorized SDF for numpy array.
+
+        >>> import numpy as np
+        >>> b = Box((0, 0, 0), (1, 1, 1))
+        >>> pts = np.array([[[0, 0, 0], [1, 1, 1], [2, 0, 0]]])
+        >>> b.sdf_array(pts)
+        array([[-1.,  0.,  1.]])
+        """
+        center = self.position.to_numpy()
+        p = np.abs(points - center)
+        hx, hy, hz = self.half_extents
+        outside = np.sqrt(
+            np.maximum(p[..., 0] - hx, 0) ** 2 +
+            np.maximum(p[..., 1] - hy, 0) ** 2 +
+            np.maximum(p[..., 2] - hz, 0) ** 2
+        )
+        inside = np.minimum(
+            np.maximum(np.maximum(p[..., 0] - hx, p[..., 1] - hy), p[..., 2] - hz),
+            0
+        )
+        return outside + inside
+
+
+class Replica(Transform):
+    """Repeats a child object in a grid pattern.
+
+    Wraps any Transform object and tiles it at regular intervals.
+
+    >>> s = Sphere((0, 0, 0), 1)
+    >>> r = Replica((0, 0, 0), child=s, cell_size=(3, 3, 3))
+    >>> r.cell_size
+    (3, 3, 3)
+    """
+
+    def __init__(self, position, child, cell_size):
+        """Create replica with child object and cell size.
+
+        >>> s = Sphere((0, 0, 0), 1)
+        >>> r = Replica((0, 0, 0), child=s, cell_size=(4, 4, 4))
+        >>> r.child is s
+        True
+        """
+        super().__init__(position)
+        self.child = child
+        self.cell_size = tuple(cell_size)
+
+    def _repeat(self, point):
+        """Map point into base cell using modulo.
+
+        >>> r = Replica((0, 0, 0), child=Sphere((0,0,0),1), cell_size=(4, 4, 4))
+        >>> p = r._repeat(Vector((2, 2, 2)))
+        >>> abs(p.x) < 0.01
+        True
+        """
+        cx, cy, cz = self.cell_size
+        p = point - self.position
+        return Vector((
+            (p.x % cx + cx) % cx - cx / 2,
+            (p.y % cy + cy) % cy - cy / 2,
+            (p.z % cz + cz) % cz - cz / 2,
+        ))
+
+    def get_distance_to_surface(self, point):
+        """Return signed distance via repeated child SDF.
+
+        >>> s = Sphere((0, 0, 0), 1)
+        >>> r = Replica((0, 0, 0), child=s, cell_size=(4, 4, 4))
+        >>> d = r.get_distance_to_surface(Vector((2, 2, 2)))
+        >>> abs(d - (-1.0)) < 0.01
+        True
+        """
+        local = self._repeat(point)
+        return self.child.get_distance_to_surface(local)
+
+    def get_normal(self, point):
+        """Return normal from repeated child.
+
+        >>> s = Sphere((0, 0, 0), 1)
+        >>> r = Replica((0, 0, 0), child=s, cell_size=(4, 4, 4))
+        >>> n = r.get_normal(Vector((3, 2, 2)))
+        >>> abs(abs(n.x) - 1.0) < 0.01
+        True
+        """
+        local = self._repeat(point)
+        return self.child.get_normal(local)
+
+    def sdf_array(self, points):
+        """Vectorized SDF for numpy array.
+
+        >>> import numpy as np
+        >>> s = Sphere((0, 0, 0), 1)
+        >>> r = Replica((0, 0, 0), child=s, cell_size=(4, 4, 4))
+        >>> pts = np.array([[[2, 2, 2], [6, 6, 6]]])
+        >>> r.sdf_array(pts)
+        array([[-1., -1.]])
+        """
+        cx, cy, cz = self.cell_size
+        center = self.position.to_numpy()
+        p = points - center
+        local = np.stack([
+            (p[..., 0] % cx + cx) % cx - cx / 2,
+            (p[..., 1] % cy + cy) % cy - cy / 2,
+            (p[..., 2] % cz + cz) % cz - cz / 2,
+        ], axis=-1)
+        return self.child.sdf_array(local)
