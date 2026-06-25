@@ -4,7 +4,11 @@ Provides Vector for point/direction math, and scene objects
 (Sphere, Plane, Camera) with both single-point and vectorized SDF methods.
 """
 
+from __future__ import annotations
+
 from math import sqrt
+from typing import Tuple, Union
+
 import numpy as np
 
 
@@ -25,7 +29,7 @@ class Vector(list):
     'Vector:(1, 2, 3)'
     """
 
-    def __init__(self, *args):
+    def __init__(self, *args: Union[Tuple[float, float, float], list[float]]) -> None:
         """Create a vector from a sequence of numbers.
 
         >>> Vector((1, 2, 3))
@@ -35,7 +39,7 @@ class Vector(list):
         """
         super().__init__(*args)
 
-    def __sub__(self, vec):
+    def __sub__(self, vec: Union[Vector, float, int]) -> Vector:
         """Subtract another vector or scalar.
 
         >>> Vector((1, 2, 3)) - Vector((4, 5, 6))
@@ -49,7 +53,7 @@ class Vector(list):
             raise BadParametersException('Vector dimensions mismatch')
         return Vector([self[i] - vec[i] for i in range(len(self))])
 
-    def __add__(self, vec):
+    def __add__(self, vec: Union[Vector, float, int]) -> Vector:
         """Add another vector or scalar.
 
         >>> Vector((1, 2, 3)) + Vector((4, 5, 6))
@@ -61,7 +65,7 @@ class Vector(list):
             vec = self._scalar_to_vector(vec)
         return Vector([self[i] + vec[i] for i in range(len(self))])
 
-    def __mul__(self, n):
+    def __mul__(self, n: Union[float, int, list]) -> Vector:
         """Multiply by a scalar or element-wise by another vector.
 
         >>> Vector((1, 2, 3)) * 2
@@ -75,7 +79,7 @@ class Vector(list):
             return Vector([self[i] * n[i] for i in range(len(self))])
         return NotImplemented
 
-    def __truediv__(self, n):
+    def __truediv__(self, n: Union[float, int]) -> Vector:
         """Divide by a scalar.
 
         >>> Vector((2, 4, 6)) / 2
@@ -91,7 +95,7 @@ class Vector(list):
         """
         return 'Vector:({})'.format(', '.join(str(v) for v in self))
 
-    def _scalar_to_vector(self, value):
+    def _scalar_to_vector(self, value: float) -> Vector:
         """Broadcast scalar to vector of same length.
 
         >>> Vector((1, 2, 3))._scalar_to_vector(5)
@@ -99,7 +103,7 @@ class Vector(list):
         """
         return Vector([value] * len(self))
 
-    def dot(self, vec):
+    def dot(self, vec: Vector) -> float:
         """Return dot product of two vectors.
 
         >>> Vector((1, 3, -5)).dot(Vector((4, -2, -1)))
@@ -107,7 +111,7 @@ class Vector(list):
         """
         return sum(self[i] * vec[i] for i in range(len(self)))
 
-    def normalized(self):
+    def normalized(self) -> Vector:
         """Return unit vector in the same direction.
 
         >>> Vector((0, 2, 0)).normalized()
@@ -121,7 +125,7 @@ class Vector(list):
         inv_length = 1.0 / length_val
         return Vector([v * inv_length for v in self])
 
-    def distance(self, vec):
+    def distance(self, vec: Vector) -> float:
         """Return Euclidean distance to another vector.
 
         >>> Vector((0, 0, 0)).distance(Vector((3, 4, 0)))
@@ -130,7 +134,7 @@ class Vector(list):
         return sqrt(sum((self[i] - vec[i]) ** 2 for i in range(len(self))))
 
     @property
-    def length(self):
+    def length(self) -> float:
         """Return scalar length of vector.
 
         >>> Vector((3, 4, 0)).length
@@ -139,7 +143,7 @@ class Vector(list):
         return sqrt(sum(v * v for v in self))
 
     @property
-    def x(self):
+    def x(self) -> float:
         """X component.
 
         >>> Vector((1, 2, 3)).x
@@ -148,7 +152,7 @@ class Vector(list):
         return self[0]
 
     @property
-    def y(self):
+    def y(self) -> float:
         """Y component.
 
         >>> Vector((1, 2, 3)).y
@@ -157,7 +161,7 @@ class Vector(list):
         return self[1]
 
     @property
-    def z(self):
+    def z(self) -> float:
         """Z component.
 
         >>> Vector((1, 2, 3)).z
@@ -166,18 +170,18 @@ class Vector(list):
         return self[2]
 
     @x.setter
-    def x(self, value):
+    def x(self, value: float) -> None:
         self[0] = value
 
     @y.setter
-    def y(self, value):
+    def y(self, value: float) -> None:
         self[1] = value
 
     @z.setter
-    def z(self, value):
+    def z(self, value: float) -> None:
         self[2] = value
 
-    def to_numpy(self):
+    def to_numpy(self) -> np.ndarray:
         """Convert to numpy array of shape (3,).
 
         >>> Vector((1, 2, 3)).to_numpy()
@@ -192,9 +196,9 @@ class Transform:
     Subclasses must implement get_distance_to_surface() and get_normal().
     """
 
-    _position = None
+    _position: Vector
 
-    def __init__(self, position):
+    def __init__(self, position: Union[Vector, Tuple[float, float, float], list[float]]) -> None:
         """Initialize with a 3D position.
 
         >>> t = Transform((1, 2, 3))
@@ -205,15 +209,15 @@ class Transform:
             raise BadParametersException('Position must be a 3D vector')
         self._position = Vector(position)
 
-    def get_distance_to_surface(self, point):
+    def get_distance_to_surface(self, point: Vector) -> float:
         """Return signed distance from point to surface. Override in subclass."""
         raise NotImplementedError()
 
-    def get_normal(self, point):
+    def get_normal(self, point: Vector) -> Vector:
         """Return surface normal at point. Override in subclass."""
         raise NotImplementedError()
 
-    def sdf_array(self, points):
+    def sdf_array(self, points: np.ndarray) -> np.ndarray:
         """Vectorized SDF for numpy array of shape (..., 3).
 
         Default implementation calls per-point SDF via vectorize.
@@ -225,7 +229,7 @@ class Transform:
         return result.reshape(original_shape)
 
     @property
-    def position(self):
+    def position(self) -> Vector:
         """Object position as a Vector.
 
         >>> Transform((1, 2, 3)).position
@@ -234,7 +238,7 @@ class Transform:
         return self._position
 
     @position.setter
-    def position(self, value):
+    def position(self, value: Union[Vector, Tuple[float, float, float], list[float]]) -> None:
         self._position = Vector(value)
 
 
@@ -248,7 +252,7 @@ class Plane(Transform):
     0
     """
 
-    def get_distance_to_surface(self, point):
+    def get_distance_to_surface(self, point: Vector) -> float:
         """Return signed distance from point to plane.
 
         >>> Plane((0, -2, 0)).get_distance_to_surface(Vector((0, 0, 0)))
@@ -258,7 +262,7 @@ class Plane(Transform):
         """
         return point.y - self.position.y
 
-    def get_normal(self, point):
+    def get_normal(self, point: Vector) -> Vector:
         """Return plane normal (always (0, 1, 0)).
 
         >>> Plane((0, 0, 0)).get_normal(Vector((1, 2, 3)))
@@ -266,7 +270,7 @@ class Plane(Transform):
         """
         return Vector((0, 1, 0))
 
-    def sdf_array(self, points):
+    def sdf_array(self, points: np.ndarray) -> np.ndarray:
         """Vectorized SDF for numpy array.
 
         >>> import numpy as np
@@ -286,7 +290,11 @@ class Sphere(Transform):
     5
     """
 
-    def __init__(self, position, radius):
+    def __init__(
+        self,
+        position: Union[Vector, Tuple[float, float, float], list[float]],
+        radius: float,
+    ) -> None:
         """Create sphere with center and radius.
 
         >>> s = Sphere((1, 2, 3), 5)
@@ -298,7 +306,7 @@ class Sphere(Transform):
         super().__init__(position)
         self.radius = radius
 
-    def get_distance_to_surface(self, point):
+    def get_distance_to_surface(self, point: Vector) -> float:
         """Return signed distance from point to sphere surface.
 
         >>> Sphere((0, 0, 0), 5).get_distance_to_surface(Vector((0, 0, 0)))
@@ -308,7 +316,7 @@ class Sphere(Transform):
         """
         return self.position.distance(point) - self.radius
 
-    def get_normal(self, point):
+    def get_normal(self, point: Vector) -> Vector:
         """Return unit normal pointing away from sphere center.
 
     >>> Sphere((0, 0, 0), 5).get_normal(Vector((5, 0, 0)))
@@ -316,7 +324,7 @@ class Sphere(Transform):
         """
         return (self.position - point).normalized()
 
-    def sdf_array(self, points):
+    def sdf_array(self, points: np.ndarray) -> np.ndarray:
         """Vectorized SDF for numpy array.
 
         >>> import numpy as np
@@ -338,6 +346,18 @@ class Camera(Transform):
     Vector:(0, 1, -10)
     """
 
+    def __init__(
+        self,
+        position: Union[Vector, Tuple[float, float, float], list[float]],
+    ) -> None:
+        """Create camera at given position.
+
+        >>> c = Camera((0, 1, -10))
+        >>> c.position
+        Vector:(0, 1, -10)
+        """
+        super().__init__(position)
+
 
 class Torus(Transform):
     """Torus (donut) with major radius R and minor radius r.
@@ -351,7 +371,12 @@ class Torus(Transform):
     2
     """
 
-    def __init__(self, position, major_radius, minor_radius):
+    def __init__(
+        self,
+        position: Union[Vector, Tuple[float, float, float], list[float]],
+        major_radius: float,
+        minor_radius: float,
+    ) -> None:
         """Create torus with center, major and minor radii.
 
         >>> t = Torus((1, 2, 3), 5, 2)
@@ -362,7 +387,7 @@ class Torus(Transform):
         self.major_radius = major_radius
         self.minor_radius = minor_radius
 
-    def get_distance_to_surface(self, point):
+    def get_distance_to_surface(self, point: Vector) -> float:
         """Return signed distance from point to torus surface.
 
         >>> Torus((0, 0, 0), 5, 2).get_distance_to_surface(Vector((5, 0, 0)))
@@ -374,7 +399,7 @@ class Torus(Transform):
         q = Vector((sqrt(p.x ** 2 + p.z ** 2) - self.major_radius, p.y, 0))
         return q.length - self.minor_radius
 
-    def get_normal(self, point):
+    def get_normal(self, point: Vector) -> Vector:
         """Return unit normal at point on torus surface.
 
         >>> n = Torus((0, 0, 0), 5, 2).get_normal(Vector((7, 0, 0)))
@@ -389,7 +414,7 @@ class Torus(Transform):
         qy = p.y
         return Vector((qx, qy, 0)).normalized()
 
-    def sdf_array(self, points):
+    def sdf_array(self, points: np.ndarray) -> np.ndarray:
         """Vectorized SDF for numpy array.
 
         >>> import numpy as np
@@ -416,7 +441,11 @@ class Cylinder(Transform):
     3
     """
 
-    def __init__(self, position, radius):
+    def __init__(
+        self,
+        position: Union[Vector, Tuple[float, float, float], list[float]],
+        radius: float,
+    ) -> None:
         """Create cylinder with center and radius.
 
         >>> c = Cylinder((1, 2, 3), 5)
@@ -426,7 +455,7 @@ class Cylinder(Transform):
         super().__init__(position)
         self.radius = radius
 
-    def get_distance_to_surface(self, point):
+    def get_distance_to_surface(self, point: Vector) -> float:
         """Return signed distance from point to cylinder surface.
 
         >>> Cylinder((0, 0, 0), 3).get_distance_to_surface(Vector((3, 5, 0)))
@@ -440,7 +469,7 @@ class Cylinder(Transform):
         d = sqrt(p.x ** 2 + p.z ** 2) - self.radius
         return d
 
-    def get_normal(self, point):
+    def get_normal(self, point: Vector) -> Vector:
         """Return unit normal at point.
 
         >>> n = Cylinder((0, 0, 0), 3).get_normal(Vector((3, 5, 0)))
@@ -453,7 +482,7 @@ class Cylinder(Transform):
             return Vector((1, 0, 0))
         return Vector((p.x / d, 0, p.z / d))
 
-    def sdf_array(self, points):
+    def sdf_array(self, points: np.ndarray) -> np.ndarray:
         """Vectorized SDF for numpy array.
 
         >>> import numpy as np
@@ -477,7 +506,11 @@ class Box(Transform):
     (2, 3, 4)
     """
 
-    def __init__(self, position, half_extents):
+    def __init__(
+        self,
+        position: Union[Vector, Tuple[float, float, float], list[float]],
+        half_extents: Tuple[float, float, float],
+    ) -> None:
         """Create box with center and half-extents.
 
         >>> b = Box((1, 2, 3), (4, 5, 6))
@@ -487,7 +520,7 @@ class Box(Transform):
         super().__init__(position)
         self.half_extents = tuple(half_extents)
 
-    def get_distance_to_surface(self, point):
+    def get_distance_to_surface(self, point: Vector) -> float:
         """Return signed distance from point to box surface.
 
         >>> Box((0, 0, 0), (1, 1, 1)).get_distance_to_surface(Vector((0, 0, 0)))
@@ -506,7 +539,7 @@ class Box(Transform):
         inside = min(max(abs(p.x) - hx, max(abs(p.y) - hy, abs(p.z) - hz)), 0)
         return outside + inside
 
-    def get_normal(self, point):
+    def get_normal(self, point: Vector) -> Vector:
         """Return unit normal at point.
 
         >>> n = Box((0, 0, 0), (1, 1, 1)).get_normal(Vector((2, 0, 0)))
@@ -523,7 +556,7 @@ class Box(Transform):
             return Vector((0, 1, 0))
         return n.normalized()
 
-    def sdf_array(self, points):
+    def sdf_array(self, points: np.ndarray) -> np.ndarray:
         """Vectorized SDF for numpy array.
 
         >>> import numpy as np
@@ -558,7 +591,12 @@ class Replica(Transform):
     (3, 3, 3)
     """
 
-    def __init__(self, position, child, cell_size):
+    def __init__(
+        self,
+        position: Union[Vector, Tuple[float, float, float], list[float]],
+        child: Transform,
+        cell_size: Tuple[float, float, float],
+    ) -> None:
         """Create replica with child object and cell size.
 
         >>> s = Sphere((0, 0, 0), 1)
@@ -570,7 +608,7 @@ class Replica(Transform):
         self.child = child
         self.cell_size = tuple(cell_size)
 
-    def _repeat(self, point):
+    def _repeat(self, point: Vector) -> Vector:
         """Map point into base cell using modulo.
 
         >>> r = Replica((0, 0, 0), child=Sphere((0,0,0),1), cell_size=(4, 4, 4))
@@ -586,7 +624,7 @@ class Replica(Transform):
             (p.z % cz + cz) % cz - cz / 2,
         ))
 
-    def get_distance_to_surface(self, point):
+    def get_distance_to_surface(self, point: Vector) -> float:
         """Return signed distance via repeated child SDF.
 
         >>> s = Sphere((0, 0, 0), 1)
@@ -598,7 +636,7 @@ class Replica(Transform):
         local = self._repeat(point)
         return self.child.get_distance_to_surface(local)
 
-    def get_normal(self, point):
+    def get_normal(self, point: Vector) -> Vector:
         """Return normal from repeated child.
 
         >>> s = Sphere((0, 0, 0), 1)
@@ -610,7 +648,7 @@ class Replica(Transform):
         local = self._repeat(point)
         return self.child.get_normal(local)
 
-    def sdf_array(self, points):
+    def sdf_array(self, points: np.ndarray) -> np.ndarray:
         """Vectorized SDF for numpy array.
 
         >>> import numpy as np

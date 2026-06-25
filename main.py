@@ -4,26 +4,31 @@ Renders a 3D scene with spheres using signed distance functions,
 displays with pygame, and saves the output as an image.
 """
 
+from __future__ import annotations
+
 import os
 import subprocess
 import sys
 import tempfile
 import time
+from typing import TYPE_CHECKING, Tuple
 
 import numpy as np
 import pygame
-from pygame import gfxdraw
 from PIL import Image
 
 import objects
 import utils
 
+if TYPE_CHECKING:
+    from objects import Camera, Transform
 
-WIDTH = 640
-HEIGHT = 480
+
+WIDTH: int = 640
+HEIGHT: int = 480
 
 
-def create_scene():
+def create_scene() -> Tuple[list[Transform], Camera, Transform]:
     """Create the default scene with two spheres.
 
     Returns:
@@ -41,8 +46,15 @@ def create_scene():
     return scene, camera, light
 
 
-def render(scene, camera, light, width=WIDTH, height=HEIGHT,
-           max_steps=100, max_distance=50.0):
+def render(
+    scene: list[Transform],
+    camera: Camera,
+    light: Transform,
+    width: int = WIDTH,
+    height: int = HEIGHT,
+    max_steps: int = 100,
+    max_distance: float = 50.0,
+) -> np.ndarray:
     """Render the scene using vectorized ray marching.
 
     All pixels are processed simultaneously via numpy arrays.
@@ -98,7 +110,7 @@ def render(scene, camera, light, width=WIDTH, height=HEIGHT,
     return rgb
 
 
-def display_with_pygame(rgb, width=WIDTH, height=HEIGHT):
+def display_with_pygame(rgb: np.ndarray, width: int = WIDTH, height: int = HEIGHT) -> None:
     """Display the rendered image in a pygame window.
 
     Args:
@@ -125,7 +137,7 @@ def display_with_pygame(rgb, width=WIDTH, height=HEIGHT):
     pygame.quit()
 
 
-def save_image(rgb, filepath):
+def save_image(rgb: np.ndarray, filepath: str) -> None:
     """Save RGB array as an image file.
 
     Args:
@@ -137,7 +149,7 @@ def save_image(rgb, filepath):
     print(f"Saved: {filepath}")
 
 
-def open_image(filepath):
+def open_image(filepath: str) -> None:
     """Open image with system default viewer.
 
     Args:
@@ -151,7 +163,7 @@ def open_image(filepath):
         subprocess.run(['xdg-open', filepath])
 
 
-def main():
+def main() -> None:
     """Render scene, display with pygame, save output image."""
     scene, camera, light = create_scene()
 

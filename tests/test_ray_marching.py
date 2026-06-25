@@ -3,36 +3,7 @@
 import unittest
 import numpy as np
 from objects import Vector, Sphere, Plane
-from utils import clamp, clamp_array, ray_march_vectorized, compute_normals_from_scene
-
-
-class TestClamp(unittest.TestCase):
-    def test_within_range(self):
-        self.assertEqual(clamp(5, 0, 10), 5)
-
-    def test_below_min(self):
-        self.assertEqual(clamp(-1, 0, 10), 0)
-
-    def test_above_max(self):
-        self.assertEqual(clamp(15, 0, 10), 10)
-
-    def test_at_min(self):
-        self.assertEqual(clamp(0, 0, 10), 0)
-
-    def test_at_max(self):
-        self.assertEqual(clamp(10, 0, 10), 10)
-
-
-class TestClampArray(unittest.TestCase):
-    def test_clamp_array(self):
-        arr = np.array([-1, 0, 5, 10, 15])
-        result = clamp_array(arr, 0, 10)
-        np.testing.assert_array_equal(result, [0, 0, 5, 10, 10])
-
-    def test_clamp_array_no_change(self):
-        arr = np.array([2, 5, 8])
-        result = clamp_array(arr, 0, 10)
-        np.testing.assert_array_equal(result, [2, 5, 8])
+from utils import ray_march_vectorized, compute_normals_from_scene
 
 
 class TestRayMarchVectorized(unittest.TestCase):

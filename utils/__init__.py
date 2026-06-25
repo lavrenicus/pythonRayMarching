@@ -4,67 +4,24 @@ All pixels are processed simultaneously via numpy array operations,
 replacing the original per-pixel Python loop for significant speedup.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Tuple
+
 import numpy as np
 
-
-def get_distance_vectorized(points, scene):
-    """Compute SDF distances and normals for all points at once.
-
-    Args:
-        points: numpy array of shape (H, W, 3) - all sample points.
-        scene: list of Transform objects with sdf_array() methods.
-
-    Returns:
-        distances: (H, W) array of minimum distances to scene.
-        normals: (H, W, 3) array of surface normals.
-    """
-    all_distances = np.stack(
-        [obj.sdf_array(points) for obj in scene], axis=-1
-    )  # shape: (H, W, num_objects)
-
-    min_indices = np.argmin(all_distances, axis=-1)  # (H, W)
-    distances = np.min(all_distances, axis=-1)  # (H, W)
-
-    normals = compute_normals_vectorized(points, distances)
-    return distances, normals
+if TYPE_CHECKING:
+    from objects import Transform
 
 
-def compute_normals_vectorized(points, distances, epsilon=0.001):
-    """Compute surface normals via central differences on the distance field.
-
-    Args:
-        points: (H, W, 3) sample positions.
-        distances: (H, W) distance values.
-        epsilon: finite difference step size.
-
-    Returns:
-        normals: (H, W, 3) unit normals.
-    """
-    dx = np.zeros_like(points)
-    dy = np.zeros_like(points)
-    dz = np.zeros_like(points)
-
-    dx[:, 1:, 0] = distances[:, 1:] - distances[:, :-1]
-    dx[:, :-1, 0] += distances[:, 1:] - distances[:, :-1]
-
-    dy[1:, :, 1] = distances[1:, :] - distances[:-1, :]
-    dy[:-1, :, 1] += distances[1:, :] - distances[:-1, :]
-
-    dz[:, :, 2] = distances  # z-component approximation
-
-    grad = np.stack([
-        (np.roll(distances, -1, axis=1) - np.roll(distances, 1, axis=1)),
-        (np.roll(distances, -1, axis=0) - np.roll(distances, 1, axis=0)),
-        np.zeros_like(distances)
-    ], axis=-1)
-
-    lengths = np.linalg.norm(grad, axis=-1, keepdims=True)
-    lengths = np.maximum(lengths, 1e-8)
-    return grad / lengths
-
-
-def ray_march_vectorized(origin, directions, scene, max_steps=100,
-                          max_distance=25.0, min_distance=0.001):
+def ray_march_vectorized(
+    origin: np.ndarray,
+    directions: np.ndarray,
+    scene: list[Transform],
+    max_steps: int = 100,
+    max_distance: float = 25.0,
+    min_distance: float = 0.001,
+) -> Tuple[np.ndarray, np.ndarray]:
     """Ray march all rays simultaneously using numpy.
 
     Args:
@@ -108,7 +65,11 @@ def ray_march_vectorized(origin, directions, scene, max_steps=100,
     return distances, normals
 
 
-def compute_normals_from_scene(points, scene, epsilon=0.0005):
+def compute_normals_from_scene(
+    points: np.ndarray,
+    scene: list[Transform],
+    epsilon: float = 0.0005,
+) -> np.ndarray:
     """Compute normals by sampling SDF at offset points.
 
     Uses central differences: normal = normalize(SDF(p+e) - SDF(p-e)).
@@ -116,6 +77,7 @@ def compute_normals_from_scene(points, scene, epsilon=0.0005):
     Args:
         points: (H, W, 3) positions.
         scene: list of scene objects.
+        epsilon: finite difference step size.
 
     Returns:
         (H, W, 3) unit normal vectors.
@@ -139,19 +101,3 @@ def compute_normals_from_scene(points, scene, epsilon=0.0005):
     lengths = np.linalg.norm(grad, axis=-1, keepdims=True)
     lengths = np.maximum(lengths, 1e-8)
     return grad / lengths
-
-
-def clamp(x, a, b):
-    """Clamp x to range [a, b].
-
-    >>> clamp(5, 0, 3)
-    3
-    >>> clamp(-1, 0, 1)
-    0
-    """
-    return max(a, min(b, x))
-
-
-def clamp_array(arr, a, b):
-    """Clamp numpy array to range [a, b]."""
-    return np.clip(arr, a, b)
